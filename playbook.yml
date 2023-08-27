@@ -5,7 +5,7 @@
       authorized_key:
         user: pi
         state: present
-        key: https://github.com/benbalter.keys
+        key: https://github.com/sl4ppy.keys
 
     # Ensure PiHole password is not the default
     # Here I'm using 1Password as my secret store, but you could use another source
@@ -14,7 +14,7 @@
       user:
         name: pi
         update_password: always
-        password: "{{ lookup('community.general.onepassword', 'PiHole', field='Pi@ login') | password_hash('sha512') }}"
+        password: "{{ lookup('community.general.bitwarden', 'PiHole', field='password') | password_hash('sha512') }}"
     
     # Update system-level dependencies
     - name: update and upgrade apt packages
@@ -36,8 +36,8 @@
         conn_name: eth0
         ifname: eth0
         type: ethernet
-        ip4: 192.168.1.2/24
-        gw4: 192.168.1.1
+        ip4: 10.10.0.80/24
+        gw4: 10.10.0.1
         dns4:
           - 1.1.1.2
     
@@ -45,7 +45,7 @@
     - name: set timezone
       become: true
       community.general.timezone:
-        name: America/New_York
+        name: America/Chicago
         
     # A deploy key allows you to pull (or push) from a private GitHub repo
     - name: Ensure deploy key is present
@@ -55,15 +55,15 @@
       register: deploy_key
 
     # If a new deploy key is generated, authorize it for the repo
-    # I'm using 1Password as my secret store, but you could use another source
+    # I'm using bitwarden as my secret store, but you could use another source
     - name: Ensure deploy key is authorized
       community.general.github_deploy_key:
         key: "{{ deploy_key.public_key }}"
         name: Raspberry Pi
         state: present
-        owner: benbalter
+        owner: sl4ppy
         repo: pi-hole
-        token: "{{ lookup('community.general.onepassword', 'PiHole', field='GitHub Token') }}"
+        token: "{{ lookup('community.general.bitwarden', 'PiHole', field='GitHub Token') }}"
     
     - name: Install docker dependencies
       become: true
@@ -122,7 +122,7 @@
     # Note: This will not work without modification, as it's a private repo
     - name: Clone GitHub repo
       git:
-        repo: git@github.com:benbalter/pi-hole.git
+        repo: git@github.com:sl4ppy/pi-hole.git
         dest: /home/pi/pi-hole/
         clone: true
         update: true
@@ -198,13 +198,13 @@
     - name: Set Pi-Hole secret
       copy:
         dest: /home/pi/pi-hole/.pihole_web_password
-        content: "{{ lookup('community.general.onepassword', 'Raspberry pi', field='password') }}"
+        content: "{{ lookup('community.general.bitwarden', 'Raspberry pi', field='password') }}"
         
     - name: Set Caddy secret
       copy:
         dest: /home/pi/pi-hole/.caddy.env
         # I'm using 1Password here, but you could use any secret store you wanted
-        content: "CLOUDFLARE_API_TOKEN={{ lookup('community.general.onepassword', 'Raspberry pi', field='Cloudflare Token') }}"
+        content: "CLOUDFLARE_API_TOKEN={{ lookup('community.general.bitwarden', 'Raspberry pi', field='Cloudflare Token') }}"
         mode: 0700
 
     - name: Create and start docker compose services
